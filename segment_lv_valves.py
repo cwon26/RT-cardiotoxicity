@@ -483,13 +483,34 @@ def process(
         print("      not watertight after weld; trying pymeshfix")
         try:
             import pymeshfix
-            fixer = pymeshfix.MeshFix(combined.vertices, combined.faces)
-            fixer.repair(verbose=False, joincomp=True,
-                         remove_smallest_components=False)
-            combined = trimesh.Trimesh(fixer.v, fixer.f, process=True)
-            combined.fix_normals()
         except ImportError:
             print("      pymeshfix not installed; leaving mesh as-is")
+        else:
+            v_in = np.asarray(combined.vertices, dtype=np.float64)
+            f_in = np.asarray(combined.faces, dtype=np.int64)
+            v_new, f_new = None, None
+            # Preferred path: high-level helper with stable signature.
+            try:
+                v_new, f_new = pymeshfix.clean_from_arrays(
+                    v_in, f_in, verbose=False,
+                    joincomp=True, remove_smallest_components=False,
+                )
+            except (AttributeError, TypeError):
+                fixer = pymeshfix.MeshFix(v_in, f_in)
+                fixer.repair(verbose=False, joincomp=True,
+                             remove_smallest_components=False)
+                # API differs across pymeshfix versions.
+                if hasattr(fixer, "v") and hasattr(fixer, "f"):
+                    v_new, f_new = fixer.v, fixer.f
+                elif hasattr(fixer, "mesh"):
+                    pv = fixer.mesh
+                    v_new = np.asarray(pv.points)
+                    # PyVista PolyData face buffer is [n, i0, i1, i2, n, ...]
+                    raw = np.asarray(pv.faces).reshape(-1, 4)
+                    f_new = raw[:, 1:]
+            if v_new is not None:
+                combined = trimesh.Trimesh(v_new, f_new, process=True)
+                combined.fix_normals()
     print(f"      watertight={combined.is_watertight}  "
           f"volume={combined.volume / 1000.0:.1f} mL")
 
