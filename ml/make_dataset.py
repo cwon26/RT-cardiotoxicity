@@ -58,7 +58,7 @@ def _simulate_heart_dose(rng: np.random.Generator, laterality: str) -> np.ndarra
     return dose
 
 
-def generate_cohort(n_patients: int = 500, seed: int = 42) -> pd.DataFrame:
+def generate_cohort(n_patients: int = 300, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     records = []
 
@@ -77,10 +77,12 @@ def generate_cohort(n_patients: int = 500, seed: int = 42) -> pd.DataFrame:
         smoker = int(rng.random() < 0.22)
         baseline_lvef = float(np.clip(rng.normal(62, 4.5), 50, 72))
 
-        # Latent risk -> LVEF decline (percentage points).
+        # Latent radiation cardiac injury — the common upstream driver. Early
+        # subclinical markers (GLS, CFD indices) respond first; the LVEF decline
+        # is a later, downstream consequence of the same injury.
         mhd = feats["mean_heart_dose_gy"]
         v25 = feats.get("V25Gy_cc", 0.0)
-        risk = (
+        injury = (
             0.42 * mhd
             + 0.015 * v25
             + 3.2 * anthracycline
@@ -91,12 +93,27 @@ def generate_cohort(n_patients: int = 500, seed: int = 42) -> pd.DataFrame:
             + 0.10 * max(0.0, age - 55)
             + 0.18 * max(0.0, 60 - baseline_lvef)
         )
-        lvef_decline = float(np.clip(0.75 * risk + rng.normal(0, 3.5), 0, 40))
+        injury_z = injury / 10.0  # convenient unit scaling
 
-        # Binary label: cancer-therapy-related cardiac dysfunction (CTRCD),
-        # defined as an absolute LVEF drop >= 10 percentage points. Effect sizes
-        # above are tuned so the event rate lands near ~12%, typical of breast-RT
-        # cohorts with concurrent cardiotoxic chemotherapy.
+        # --- Early marker 1: GLS (speckle-tracking strain; more negative = better).
+        # Injury makes GLS less negative (worsens). Predict the relative change,
+        # the endpoint used in the ESC cardio-oncology guideline (>15% = abnormal).
+        baseline_gls = float(np.clip(rng.normal(-20.5, 1.4), -24, -16))
+        followup_gls = float(baseline_gls + 1.6 * injury_z + rng.normal(0, 0.6))
+        gls_rel_change_pct = float((followup_gls - baseline_gls) / abs(baseline_gls) * 100.0)
+
+        # --- Early marker 2: CFD endocardial wall shear stress (Pa); falls with injury.
+        baseline_wss = float(np.clip(rng.normal(1.25, 0.18), 0.7, 1.9))
+        followup_wss = float(np.clip(baseline_wss - 0.13 * injury_z + rng.normal(0, 0.05), 0.3, 2.2))
+        wss_change_pa = float(followup_wss - baseline_wss)
+
+        # --- Early marker 3: CFD intraventricular energy loss (mW); rises with injury.
+        baseline_eloss = float(np.clip(rng.normal(0.45, 0.08), 0.2, 0.8))
+        followup_eloss = float(np.clip(baseline_eloss + 0.06 * injury_z + rng.normal(0, 0.025), 0.1, 1.2))
+        energy_loss_change = float(followup_eloss - baseline_eloss)
+
+        # --- Late endpoint (downstream of early injury), kept for reference only.
+        lvef_decline = float(np.clip(0.75 * injury + rng.normal(0, 3.5), 0, 40))
         cardiotoxicity = int(lvef_decline >= 10.0)
 
         rec = {"patient_id": pid, "laterality": laterality, **feats}
@@ -108,6 +125,17 @@ def generate_cohort(n_patients: int = 500, seed: int = 42) -> pd.DataFrame:
             diabetes=diabetes,
             smoker=smoker,
             baseline_lvef=baseline_lvef,
+            # --- early subclinical markers: baselines (predictors) + targets ---
+            baseline_gls=baseline_gls,
+            followup_gls=followup_gls,
+            gls_rel_change_pct=gls_rel_change_pct,
+            baseline_wss=baseline_wss,
+            followup_wss=followup_wss,
+            wss_change_pa=wss_change_pa,
+            baseline_eloss=baseline_eloss,
+            followup_eloss=followup_eloss,
+            energy_loss_change=energy_loss_change,
+            # --- late endpoint, reference comparison only ---
             lvef_decline=lvef_decline,
             cardiotoxicity=cardiotoxicity,
         )
@@ -119,7 +147,7 @@ def generate_cohort(n_patients: int = 500, seed: int = 42) -> pd.DataFrame:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Generate a synthetic RT-cardiotoxicity cohort.")
-    ap.add_argument("--n", type=int, default=500, help="Number of patients.")
+    ap.add_argument("--n", type=int, default=300, help="Number of patients.")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", default=os.path.join(DATA_DIR, "cohort.csv"))
     args = ap.parse_args()
@@ -127,9 +155,11 @@ def main() -> None:
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     df = generate_cohort(args.n, args.seed)
     df.to_csv(args.out)
-    rate = df["cardiotoxicity"].mean()
     print(f"Wrote {len(df)} patients to {args.out}")
-    print(f"Cardiotoxicity event rate: {rate:.1%}")
+    print("Early-marker targets (mean ± sd):")
+    for t in ("gls_rel_change_pct", "wss_change_pa", "energy_loss_change"):
+        print(f"  {t:20s} {df[t].mean():7.3f} ± {df[t].std():.3f}")
+    print(f"Late reference endpoint (CTRCD) rate: {df['cardiotoxicity'].mean():.1%}")
     print(f"Columns ({df.shape[1]}): {list(df.columns)}")
 
 

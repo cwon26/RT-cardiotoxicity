@@ -49,7 +49,21 @@ DATA_DIR = os.path.join(HERE, "data")
 OUT_DIR = os.path.join(HERE, "outputs")
 
 # Columns that are outcomes/identifiers, never predictors.
+# Outcome / post-baseline columns never used as predictors for the late endpoint.
 LEAKAGE_COLUMNS = {"cardiotoxicity", "lvef_decline"}
+
+
+def _predictor_columns(df, target: str) -> list[str]:
+    """DVH + clinical + baseline markers; drop outcomes and post-baseline
+    measurements (follow-up values and marker change columns)."""
+    drop = LEAKAGE_COLUMNS | {target}
+    cols = []
+    for c in df.columns:
+        if c in drop or c.startswith("followup_") or c.endswith("_change") \
+                or c.endswith("_change_pct"):
+            continue
+        cols.append(c)
+    return cols
 
 
 def build_model(name: str):
@@ -166,8 +180,7 @@ def main() -> None:
     if args.target not in df.columns:
         raise SystemExit(f"Target '{args.target}' not in columns: {list(df.columns)}")
 
-    drop_cols = LEAKAGE_COLUMNS | {args.target}
-    feature_cols = [c for c in df.columns if c not in drop_cols]
+    feature_cols = _predictor_columns(df, args.target)
     X = df[feature_cols].copy()
     y = df[args.target].astype(int)
 
