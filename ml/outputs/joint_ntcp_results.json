@@ -1,6 +1,6 @@
 {
-  "endpoint": "cardiotoxicity",
-  "event_rate": 0.14333333333333334,
+  "endpoint": "coronary_event",
+  "event_rate": 0.4633333333333333,
   "structures": [
     "heart",
     "LV",
@@ -9,38 +9,38 @@
   "odds_ratios": [
     {
       "structure": "heart",
-      "adjusted_or_per_gy": 0.9896091333565847,
+      "adjusted_or_per_gy": 0.8540191754200867,
       "ci95": [
-        0.6762234600432434,
-        1.446116647970168
+        0.5842638367095175,
+        1.1919962248290958
       ],
-      "single_or_per_gy": 1.1562503713099428
+      "single_or_per_gy": 1.6182964305899408
     },
     {
       "structure": "LV",
-      "adjusted_or_per_gy": 0.9709478374368409,
+      "adjusted_or_per_gy": 1.0028220334391604,
       "ci95": [
-        0.7224199257606743,
-        1.30511608175737
+        0.7437622024634873,
+        1.3513375504560297
       ],
-      "single_or_per_gy": 1.1276714723035375
+      "single_or_per_gy": 1.5165726799936252
     },
     {
       "structure": "LAD",
-      "adjusted_or_per_gy": 1.0670008230414039,
+      "adjusted_or_per_gy": 1.2452571686395113,
       "ci95": [
-        0.9502514107982826,
-        1.200879767511034
+        1.1200530798168566,
+        1.3982411287807304
       ],
-      "single_or_per_gy": 1.053172295606368
+      "single_or_per_gy": 1.187687179351499
     }
   ],
-  "loglik_joint": -120.59560511420031,
-  "aic_joint": 249.19121022840062,
+  "loglik_joint": -157.13801530417464,
+  "aic_joint": 322.2760306083493,
   "best_single": "LAD",
-  "loglik_best_single": -120.62111414390267,
-  "aic_best_single": 245.24222828780535,
-  "lr_stat": 0.05101805940472559,
+  "loglik_best_single": -157.6173067230066,
+  "aic_best_single": 319.2346134460132,
+  "lr_stat": 0.9585828376639256,
   "lr_dof": 2,
-  "lr_p": 0.9627514010627465
+  "lr_p": 0.6250997701129004
 }

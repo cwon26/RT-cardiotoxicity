@@ -54,6 +54,7 @@ the late LVEF endpoint are excluded to avoid leakage.
 | `fpca_dvh.py` | **Functional DVH (fPCA)** — reduce whole DVH curves to a few shape modes and compare them to scalar Vx features as predictors. |
 | `train.py` | Secondary. Binary classifier for the *late* CTRCD endpoint (weaker at this N, by design). |
 | `predict.py` | Score new patients (auto-detects the saved model) from a feature CSV or a raw dose dict. |
+| `make_figures.py` | Build the causal-mediation, PLS-VIP, and one-page **summary dashboard** figures from the saved results. |
 | `requirements.txt` | Dependencies (PLS ships with scikit-learn — no extra deps). |
 
 ## Quick start
@@ -120,8 +121,8 @@ python joint_ntcp.py --endpoint coronary_event   # mutually-adjusted substructur
 The cohort also carries competing-risks survival outcomes (`event_time`,
 `event_type` 0=censored/1=cardiac/2=non-cardiac death, `cardiac_event`). Headline
 demo findings:
-- **Survival**: 10-y cardiac-event incidence ≈ 63% (high LV dose) vs ≈ 33% (low),
-  with the competing death handled by the Aalen-Johansen estimator.
+- **Survival**: 10-y cardiac-event incidence ≈ 54% (high LV dose) vs ≈ 28% (low,
+  C-index 0.62), with the competing death handled by the Aalen-Johansen estimator.
 - **External validation**: ROC-AUC travels (0.99→0.82) but calibration breaks
   (slope 0.28); logistic recalibration restores it (slope ≈ 1.0).
 - **Joint NTCP**: for coronary injury, only **LAD** dose stays significant after
@@ -135,6 +136,26 @@ median / std dose, integral dose, V5–V40 Gy, D2/D5/D10/D50/D95/D98 %.
 
 **Clinical & baseline:** age, laterality, anthracycline / trastuzumab, hypertension,
 diabetes, smoking, baseline LVEF, and each marker's baseline value.
+
+## Figures
+
+After running the analyses, build the figure set:
+
+```bash
+python make_figures.py      # causal_mediation_effects, pls_vip, summary_dashboard
+```
+
+`outputs/` then contains, per analysis:
+
+| Figure | From |
+|--------|------|
+| `summary_dashboard.png` | one-page overview of all six analyses |
+| `pls_pred_vs_actual.png`, `pls_vip.png` | PLS regression |
+| `mediation_path.png`, `causal_mediation_effects.png` | mediation |
+| `ntcp_curves.png`, `joint_ntcp_surface.png` | NTCP / joint NTCP |
+| `survival_cif.png` | competing-risks survival |
+| `external_calibration.png` | external validation |
+| `fpca_dvh.png` | functional DVH |
 
 ## Using your own data
 
