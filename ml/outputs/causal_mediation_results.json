@@ -1,0 +1,49 @@
+{
+  "config": {
+    "exposure": "LV__mean_dose_gy",
+    "mediator": "gls_rel_change_pct",
+    "outcome": "lvef_decline",
+    "covariates": [
+      "anthracycline",
+      "trastuzumab",
+      "hypertension",
+      "diabetes",
+      "smoker",
+      "age",
+      "baseline_lvef"
+    ],
+    "x0": 2.4477041276092213,
+    "x1": 7.850676752249022,
+    "n": 300,
+    "n_boot": 2000
+  },
+  "estimates": {
+    "NDE": 0.949498931202515,
+    "NIE": 1.2875082678382554,
+    "TE": 2.2370071990407707,
+    "proportion_mediated": 0.5755494521387053,
+    "interaction_coef": -0.01082942528743704
+  },
+  "ci95": {
+    "NDE": [
+      0.4127925086444836,
+      1.50566038360106
+    ],
+    "NIE": [
+      0.8727283571006186,
+      1.721983251338343
+    ],
+    "TE": [
+      1.6062586768335871,
+      2.8511839876042
+    ],
+    "proportion_mediated": [
+      0.4209896718270002,
+      0.7828027722816171
+    ],
+    "interaction_coef": [
+      -0.03561903995041551,
+      0.016131451500482834
+    ]
+  }
+}

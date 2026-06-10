@@ -86,6 +86,23 @@ def extract_dvh_features(
     return feats
 
 
+def cumulative_dvh(dose_gy: np.ndarray, dose_grid: np.ndarray) -> np.ndarray:
+    """Cumulative DVH: percent of volume receiving at least each grid dose (Gy).
+
+    Returns a curve (same length as ``dose_grid``) suitable for functional data
+    analysis (e.g. fPCA over the whole DVH shape rather than scalar Vx points).
+    """
+    dose = np.asarray(dose_gy, dtype=float).ravel()
+    dose = dose[np.isfinite(dose)]
+    grid = np.asarray(dose_grid, dtype=float)
+    if dose.size == 0:
+        return np.zeros_like(grid)
+    sorted_dose = np.sort(dose)
+    # count of voxels with dose >= g  =  n - searchsorted(sorted, g, 'left')
+    ge = dose.size - np.searchsorted(sorted_dose, grid, side="left")
+    return ge / dose.size * 100.0
+
+
 def extract_substructure_features(
     per_substructure_dose: dict[str, np.ndarray],
     voxel_volume_cc: float | None = None,

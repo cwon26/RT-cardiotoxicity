@@ -45,7 +45,10 @@ the late LVEF endpoint are excluded to avoid leakage.
 | `make_dataset.py` | Synthetic cohort (N=300). Two latent injuries — myocardial (LV-dose driven) and coronary (LAD-dose driven) — feed their respective markers; late LVEF decline is downstream. |
 | `train_pls.py` | **Primary.** PLS regression: substructure dose → multi-domain markers. CV-selected components, per-target R²/MAE/RMSE, VIP scores, predicted-vs-actual plots. |
 | `train_regression.py` | Alternative. Penalized regression (Ridge/Lasso/ElasticNet/multi-task ENet/RF) on the same targets. |
-| `mediation.py` | **Mediation analysis** — formally tests that early markers carry the LV-dose → LVEF-decline effect (Baron-Kenny + bootstrap CIs, confounder-adjusted). |
+| `mediation.py` | **Mediation analysis** — tests that early markers carry the LV-dose → LVEF-decline effect (Baron-Kenny + bootstrap CIs, confounder-adjusted). |
+| `causal_mediation.py` | Potential-outcomes natural direct/indirect effects with an X·M interaction — robustness check on `mediation.py`. |
+| `ntcp.py` | Substructure **NTCP dose-response curves** (logistic, D50 / γ50, bootstrap bands) — LAD→coronary, LV/heart→CTRCD. |
+| `fpca_dvh.py` | **Functional DVH (fPCA)** — reduce whole DVH curves to a few shape modes and compare them to scalar Vx features as predictors. |
 | `train.py` | Secondary. Binary classifier for the *late* CTRCD endpoint (weaker at this N, by design). |
 | `predict.py` | Score new patients (auto-detects the saved model) from a feature CSV or a raw dose dict. |
 | `requirements.txt` | Dependencies (PLS ships with scikit-learn — no extra deps). |
@@ -91,6 +94,18 @@ python mediation.py --exposure LV__mean_dose_gy --outcome lvef_decline \
     --mediators gls_rel_change_pct lv_wss_change --n-boot 2000
 ```
 
+## Further analyses
+
+```bash
+python causal_mediation.py                 # potential-outcomes natural effects
+python ntcp.py                             # substructure NTCP dose-response curves
+python ntcp.py --pairs LV:cardiotoxicity LAD:coronary_event
+python fpca_dvh.py --structure LAD --outcome lad_osi_change   # functional DVH
+```
+
+Outputs: `causal_mediation_results.json`; `ntcp_curves.png` / `ntcp_results.json`;
+`fpca_dvh.png` / `fpca_results.json`.
+
 ## Predictors
 
 **Dosimetric, per substructure** (`heart`, `LV`, `LAD`, `RCA`, `LCX`): mean / max /
@@ -121,9 +136,16 @@ post-processing (the repo already builds the LV mesh and a Fluent valve workflow
 
 ## Roadmap
 
-Natural follow-ups for this cohort design:
-- ✅ **Mediation analysis** — implemented in `mediation.py`.
-- **Substructure NTCP curves** — LAD/LV dose-response for clinical reporting.
-- **Functional DVH (fPCA)** — use whole DVH curves instead of fixed Vx thresholds.
-- **Causal mediation (potential-outcomes)** — natural direct/indirect effects with
-  exposure–mediator interaction, as a robustness check on the Baron-Kenny result.
+All implemented:
+- ✅ **Mediation analysis** (`mediation.py`) — ~70% of the LV-dose effect on LVEF
+  is mediated by the early markers (CI excludes 0).
+- ✅ **Causal mediation** (`causal_mediation.py`) — potential-outcomes natural
+  effects corroborate it (~58% via GLS alone); X·M interaction is negligible, so
+  the Baron-Kenny no-interaction assumption holds.
+- ✅ **Substructure NTCP curves** (`ntcp.py`) — e.g. LAD mean-dose → coronary
+  injury with D50 ≈ 14 Gy; clinical dose-response form with bootstrap bands.
+- ✅ **Functional DVH / fPCA** (`fpca_dvh.py`) — ~97% of DVH-shape variance in PC1;
+  4 fPCA scores match or beat the 8 scalar Vx features as predictors.
+
+Possible further work: external validation on real cohorts, competing-risks /
+time-to-event models for cardiac events, and joint multi-substructure NTCP.

@@ -35,7 +35,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from dvh_features import extract_substructure_features
+from dvh_features import cumulative_dvh, extract_substructure_features
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(HERE, "data")
@@ -74,9 +74,22 @@ def _simulate_substructure_dose(rng, struct: str, left: bool) -> np.ndarray:
     return dose
 
 
-def generate_cohort(n_patients: int = 300, seed: int = 42) -> pd.DataFrame:
+def generate_cohort(
+    n_patients: int = 300,
+    seed: int = 42,
+    dvh_grid: np.ndarray | None = None,
+    return_curves: bool = False,
+):
+    """Build the synthetic cohort.
+
+    If ``return_curves`` is True, also return a dict mapping each substructure to
+    an (n_patients x len(dvh_grid)) matrix of cumulative DVH curves (percent of
+    volume >= each grid dose), for functional-DVH analysis. The patient order
+    matches the returned DataFrame index.
+    """
     rng = np.random.default_rng(seed)
     records = []
+    curves = {s: [] for s in SUBSTRUCTURES} if return_curves else None
 
     for i in range(n_patients):
         pid = f"PT{i:04d}"
@@ -85,6 +98,9 @@ def generate_cohort(n_patients: int = 300, seed: int = 42) -> pd.DataFrame:
 
         per_sub_dose = {s: _simulate_substructure_dose(rng, s, left) for s in SUBSTRUCTURES}
         feats = extract_substructure_features(per_sub_dose, voxel_volume_cc=0.002)
+        if return_curves:
+            for s in SUBSTRUCTURES:
+                curves[s].append(cumulative_dvh(per_sub_dose[s], dvh_grid))
 
         # Clinical covariates.
         age = float(np.clip(rng.normal(58, 11), 28, 88))
@@ -197,7 +213,11 @@ def generate_cohort(n_patients: int = 300, seed: int = 42) -> pd.DataFrame:
         )
         records.append(rec)
 
-    return pd.DataFrame.from_records(records).set_index("patient_id")
+    df = pd.DataFrame.from_records(records).set_index("patient_id")
+    if return_curves:
+        curves = {s: np.asarray(v) for s, v in curves.items()}
+        return df, curves
+    return df
 
 
 # Target columns grouped by physiological domain (consumed by train_pls.py).
