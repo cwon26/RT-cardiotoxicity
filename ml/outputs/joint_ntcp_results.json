@@ -1,0 +1,46 @@
+{
+  "endpoint": "cardiotoxicity",
+  "event_rate": 0.14333333333333334,
+  "structures": [
+    "heart",
+    "LV",
+    "LAD"
+  ],
+  "odds_ratios": [
+    {
+      "structure": "heart",
+      "adjusted_or_per_gy": 0.9896091333565847,
+      "ci95": [
+        0.6762234600432434,
+        1.446116647970168
+      ],
+      "single_or_per_gy": 1.1562503713099428
+    },
+    {
+      "structure": "LV",
+      "adjusted_or_per_gy": 0.9709478374368409,
+      "ci95": [
+        0.7224199257606743,
+        1.30511608175737
+      ],
+      "single_or_per_gy": 1.1276714723035375
+    },
+    {
+      "structure": "LAD",
+      "adjusted_or_per_gy": 1.0670008230414039,
+      "ci95": [
+        0.9502514107982826,
+        1.200879767511034
+      ],
+      "single_or_per_gy": 1.053172295606368
+    }
+  ],
+  "loglik_joint": -120.59560511420031,
+  "aic_joint": 249.19121022840062,
+  "best_single": "LAD",
+  "loglik_best_single": -120.62111414390267,
+  "aic_best_single": 245.24222828780535,
+  "lr_stat": 0.05101805940472559,
+  "lr_dof": 2,
+  "lr_p": 0.9627514010627465
+}

@@ -74,11 +74,58 @@ def _simulate_substructure_dose(rng, struct: str, left: bool) -> np.ndarray:
     return dose
 
 
+def _simulate_survival(records: list[dict], seed: int) -> None:
+    """Add competing-risks time-to-event outcomes to each record in place.
+
+    Two competing causes from a Weibull proportional-hazards model:
+      event_type 1 = cardiac event (HF / cardiac death), hazard rises with the
+                     latent myocardial injury;
+      event_type 2 = non-cardiac death (competing risk), hazard rises with age,
+                     smoking, diabetes;
+      event_type 0 = censored (administrative at 10 y, plus random dropout).
+    Columns added: event_time (years), event_type, cardiac_event (1 if type==1).
+
+    A separate RNG (seed-independent of the main draws) keeps every other column
+    byte-identical to the primary cohort.
+    """
+    rng = np.random.default_rng(seed + 7919)
+    for rec in records:
+        myo = rec["_myo_injury"]
+        # cardiac log-hazard: latent injury + an explicit dose contribution
+        lp_c = (0.10 * (myo - 6.0)
+                + 0.075 * (rec["LV__mean_dose_gy"] - 5.0)
+                + 0.030 * (rec["LAD__mean_dose_gy"] - 8.0))
+        lp_d = (0.045 * (rec["age"] - 58) + 0.5 * rec["smoker"]
+                + 0.4 * rec["diabetes"] - 0.6)         # non-cardiac death log-hazard
+        # Weibull PH: T = scale * (-ln U / exp(lp))^(1/k)
+        u_c, u_d = rng.random(), rng.random()
+        t_c = 15.5 * (-np.log(u_c) / np.exp(lp_c)) ** (1.0 / 1.3)
+        t_d = 30.0 * (-np.log(u_d) / np.exp(lp_d)) ** (1.0 / 1.1)
+        t_admin = 10.0
+        t_drop = rng.uniform(4.0, 14.0)
+        t_cens = min(t_admin, t_drop)
+
+        t = min(t_c, t_d, t_cens)
+        if t == t_c and t_c <= t_cens:
+            etype = 1
+        elif t == t_d and t_d <= t_cens:
+            etype = 2
+        else:
+            etype = 0
+        rec["event_time"] = float(round(t, 3))
+        rec["event_type"] = int(etype)
+        rec["cardiac_event"] = int(etype == 1)
+
+
 def generate_cohort(
     n_patients: int = 300,
     seed: int = 42,
     dvh_grid: np.ndarray | None = None,
     return_curves: bool = False,
+    left_frac: float = 0.55,
+    anthracycline_p: float = 0.45,
+    trastuzumab_p: float = 0.30,
+    dose_scale: float = 1.0,
 ):
     """Build the synthetic cohort.
 
@@ -86,6 +133,10 @@ def generate_cohort(
     an (n_patients x len(dvh_grid)) matrix of cumulative DVH curves (percent of
     volume >= each grid dose), for functional-DVH analysis. The patient order
     matches the returned DataFrame index.
+
+    The ``left_frac`` / ``*_p`` / ``dose_scale`` knobs induce case-mix and dose
+    distribution shift for simulating an *external* validation site. Defaults
+    reproduce the primary cohort exactly.
     """
     rng = np.random.default_rng(seed)
     records = []
@@ -93,10 +144,12 @@ def generate_cohort(
 
     for i in range(n_patients):
         pid = f"PT{i:04d}"
-        laterality = rng.choice(["left", "right"], p=[0.55, 0.45])
+        laterality = rng.choice(["left", "right"], p=[left_frac, 1 - left_frac])
         left = laterality == "left"
 
         per_sub_dose = {s: _simulate_substructure_dose(rng, s, left) for s in SUBSTRUCTURES}
+        if dose_scale != 1.0:
+            per_sub_dose = {s: np.clip(d * dose_scale, 0, 55) for s, d in per_sub_dose.items()}
         feats = extract_substructure_features(per_sub_dose, voxel_volume_cc=0.002)
         if return_curves:
             for s in SUBSTRUCTURES:
@@ -104,8 +157,8 @@ def generate_cohort(
 
         # Clinical covariates.
         age = float(np.clip(rng.normal(58, 11), 28, 88))
-        anthracycline = int(rng.random() < 0.45)
-        trastuzumab = int(rng.random() < 0.30)
+        anthracycline = int(rng.random() < anthracycline_p)
+        trastuzumab = int(rng.random() < trastuzumab_p)
         hypertension = int(rng.random() < 0.35)
         diabetes = int(rng.random() < 0.18)
         smoker = int(rng.random() < 0.22)
@@ -210,10 +263,15 @@ def generate_cohort(
             # --- late endpoint, reference comparison only ---
             lvef_decline=lvef_decline,
             cardiotoxicity=cardiotoxicity,
+            # temporary latent value for the survival pass (dropped below)
+            _myo_injury=myo_injury,
         )
         records.append(rec)
 
+    _simulate_survival(records, seed)
+
     df = pd.DataFrame.from_records(records).set_index("patient_id")
+    df = df.drop(columns=[c for c in df.columns if c.startswith("_")])
     if return_curves:
         curves = {s: np.asarray(v) for s, v in curves.items()}
         return df, curves
@@ -242,6 +300,11 @@ def main() -> None:
     for t in ALL_TARGETS:
         print(f"  {t:22s} {df[t].mean():8.4f} ± {df[t].std():.4f}")
     print(f"Late reference endpoint (CTRCD) rate: {df['cardiotoxicity'].mean():.1%}")
+    print("Competing-risks survival: "
+          f"cardiac {df['cardiac_event'].mean():.1%}, "
+          f"non-cardiac death {(df['event_type']==2).mean():.1%}, "
+          f"censored {(df['event_type']==0).mean():.1%}, "
+          f"median FU {df['event_time'].median():.1f} y")
     print(f"Total columns: {df.shape[1]}")
 
 

@@ -48,6 +48,9 @@ the late LVEF endpoint are excluded to avoid leakage.
 | `mediation.py` | **Mediation analysis** — tests that early markers carry the LV-dose → LVEF-decline effect (Baron-Kenny + bootstrap CIs, confounder-adjusted). |
 | `causal_mediation.py` | Potential-outcomes natural direct/indirect effects with an X·M interaction — robustness check on `mediation.py`. |
 | `ntcp.py` | Substructure **NTCP dose-response curves** (logistic, D50 / γ50, bootstrap bands) — LAD→coronary, LV/heart→CTRCD. |
+| `joint_ntcp.py` | **Joint multi-substructure NTCP** — mutually-adjusted ORs per structure; isolates LAD as the coronary driver from the correlated doses (LR test / AIC, risk surface). |
+| `survival.py` | **Competing-risks survival** — cause-specific Cox for cardiac events, Aalen-Johansen cumulative incidence by LV dose, C-index (numpy-only). |
+| `external_validation.py` | **External validation** under case-mix/dose shift — discrimination + calibration (slope/intercept, Brier) and logistic recalibration. |
 | `fpca_dvh.py` | **Functional DVH (fPCA)** — reduce whole DVH curves to a few shape modes and compare them to scalar Vx features as predictors. |
 | `train.py` | Secondary. Binary classifier for the *late* CTRCD endpoint (weaker at this N, by design). |
 | `predict.py` | Score new patients (auto-detects the saved model) from a feature CSV or a raw dose dict. |
@@ -106,6 +109,25 @@ python fpca_dvh.py --structure LAD --outcome lad_osi_change   # functional DVH
 Outputs: `causal_mediation_results.json`; `ntcp_curves.png` / `ntcp_results.json`;
 `fpca_dvh.png` / `fpca_results.json`.
 
+## Time-to-event, validation, joint NTCP
+
+```bash
+python survival.py                 # cause-specific Cox + CIF (competing risks)
+python external_validation.py      # generalization + calibration under shift
+python joint_ntcp.py --endpoint coronary_event   # mutually-adjusted substructure ORs
+```
+
+The cohort also carries competing-risks survival outcomes (`event_time`,
+`event_type` 0=censored/1=cardiac/2=non-cardiac death, `cardiac_event`). Headline
+demo findings:
+- **Survival**: 10-y cardiac-event incidence ≈ 63% (high LV dose) vs ≈ 33% (low),
+  with the competing death handled by the Aalen-Johansen estimator.
+- **External validation**: ROC-AUC travels (0.99→0.82) but calibration breaks
+  (slope 0.28); logistic recalibration restores it (slope ≈ 1.0).
+- **Joint NTCP**: for coronary injury, only **LAD** dose stays significant after
+  mutual adjustment (OR ≈ 1.25/Gy) — the single-structure heart OR (≈1.6) was
+  confounded by correlated doses.
+
 ## Predictors
 
 **Dosimetric, per substructure** (`heart`, `LV`, `LAD`, `RCA`, `LCX`): mean / max /
@@ -147,5 +169,11 @@ All implemented:
 - ✅ **Functional DVH / fPCA** (`fpca_dvh.py`) — ~97% of DVH-shape variance in PC1;
   4 fPCA scores match or beat the 8 scalar Vx features as predictors.
 
-Possible further work: external validation on real cohorts, competing-risks /
-time-to-event models for cardiac events, and joint multi-substructure NTCP.
+- ✅ **External validation** (`external_validation.py`) — discrimination transfers,
+  calibration breaks under shift and is fixed by recalibration.
+- ✅ **Competing-risks survival** (`survival.py`) — cause-specific Cox + CIF.
+- ✅ **Joint multi-substructure NTCP** (`joint_ntcp.py`).
+
+Remaining future work: replace the synthetic cohort with a real, IRB-approved one;
+validate on truly external institutional data; and extend the survival model with
+Fine-Gray subdistribution hazards and time-varying dose effects.

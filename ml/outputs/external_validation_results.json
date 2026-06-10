@@ -1,0 +1,22 @@
+{
+  "development": {
+    "roc_auc": 0.984707266310741,
+    "brier": 0.06098848393034924,
+    "calib_slope": 1.9026747968582802,
+    "calib_intercept": -2.1810886507907923
+  },
+  "external": {
+    "roc_auc": 0.8154051830522419,
+    "brier": 0.08624695283549695,
+    "calib_slope": 0.2830908828244905,
+    "calib_intercept": -1.6212598072301971
+  },
+  "external_recalibrated": {
+    "roc_auc": 0.8154051830522419,
+    "brier": 0.053711355998589214,
+    "calib_slope": 1.0007426921560767,
+    "calib_intercept": 0.001490505709578624
+  },
+  "dev_event_rate": 0.14333333333333334,
+  "ext_event_rate": 0.065
+}
