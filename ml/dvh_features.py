@@ -60,12 +60,13 @@ def extract_dvh_features(
     n = dose.size
     feats: dict[str, float] = {}
 
-    # Basic summary statistics.
-    feats["mean_heart_dose_gy"] = float(np.mean(dose))
-    feats["max_heart_dose_gy"] = float(np.max(dose))
-    feats["min_heart_dose_gy"] = float(np.min(dose))
-    feats["median_heart_dose_gy"] = float(np.median(dose))
-    feats["std_heart_dose_gy"] = float(np.std(dose))
+    # Basic summary statistics (structure-neutral names; prefix per substructure
+    # with extract_substructure_features).
+    feats["mean_dose_gy"] = float(np.mean(dose))
+    feats["max_dose_gy"] = float(np.max(dose))
+    feats["min_dose_gy"] = float(np.min(dose))
+    feats["median_dose_gy"] = float(np.median(dose))
+    feats["std_dose_gy"] = float(np.std(dose))
     # Integral dose (Gy*cc) if voxel volume known, else Gy*voxels.
     total_volume = n * voxel_volume_cc if voxel_volume_cc else float(n)
     feats["integral_dose"] = float(np.sum(dose) * (voxel_volume_cc or 1.0))
@@ -83,6 +84,32 @@ def extract_dvh_features(
         feats[f"D{x}pct_gy"] = float(np.percentile(dose, 100 - x))
 
     return feats
+
+
+def extract_substructure_features(
+    per_substructure_dose: dict[str, np.ndarray],
+    voxel_volume_cc: float | None = None,
+    **kwargs,
+) -> dict[str, float]:
+    """DVH features for several cardiac substructures, flattened with a prefix.
+
+    Coronary-artery and chamber endpoints are driven by the dose to *that*
+    structure, not by whole-heart mean dose, so substructure-resolved DVH is the
+    right predictor set. Keys are ``"{structure}__{feature}"``, e.g.
+    ``"LAD__mean_dose_gy"`` or ``"LV__V25Gy_cc"``.
+
+    Parameters
+    ----------
+    per_substructure_dose
+        Mapping of structure name (e.g. 'heart', 'LV', 'LAD', 'RCA', 'LCX') ->
+        1-D dose array (Gy) for that structure.
+    """
+    out: dict[str, float] = {}
+    for struct, dose in per_substructure_dose.items():
+        feats = extract_dvh_features(dose, voxel_volume_cc=voxel_volume_cc, **kwargs)
+        for k, v in feats.items():
+            out[f"{struct}__{k}"] = v
+    return out
 
 
 def build_feature_table(

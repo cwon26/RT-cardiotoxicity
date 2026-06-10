@@ -60,18 +60,19 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 import joblib
 
+from make_dataset import ALL_TARGETS
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(HERE, "data")
 OUT_DIR = os.path.join(HERE, "outputs")
 
-DEFAULT_TARGETS = ["gls_rel_change_pct", "wss_change_pa", "energy_loss_change"]
+DEFAULT_TARGETS = ALL_TARGETS
 
 # Anything that would leak the outcome: follow-up measurements, the change
 # columns themselves, and the late LVEF endpoint. Baseline_* stays as predictors.
 LEAKAGE_PREFIXES = ("followup_",)
 LEAKAGE_SUFFIXES = ("_change", "_change_pct")
-LEAKAGE_EXACT = {"lvef_decline", "cardiotoxicity", "gls_rel_change_pct",
-                 "wss_change_pa", "energy_loss_change"}
+LEAKAGE_EXACT = {"lvef_decline", "cardiotoxicity", *ALL_TARGETS}
 
 
 def select_features(df: pd.DataFrame, targets: list[str]) -> list[str]:

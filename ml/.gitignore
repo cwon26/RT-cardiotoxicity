@@ -2,4 +2,5 @@ __pycache__/
 *.pyc
 outputs/model.joblib
 outputs/model_regression.joblib
+outputs/model_pls.joblib
 outputs/predictions.csv

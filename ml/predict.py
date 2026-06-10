@@ -30,15 +30,27 @@ import joblib
 from dvh_features import extract_dvh_features
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_MODEL = os.path.join(HERE, "outputs", "model_regression.joblib")
+OUT_DIR = os.path.join(HERE, "outputs")
+# Prefer the PLS model; fall back to the other regression / classification bundles.
+_MODEL_PRIORITY = ["model_pls.joblib", "model_regression.joblib", "model.joblib"]
+DEFAULT_MODEL = os.path.join(OUT_DIR, _MODEL_PRIORITY[0])
 
 
-def load_model(path: str = DEFAULT_MODEL):
+def _default_model() -> str:
+    for name in _MODEL_PRIORITY:
+        p = os.path.join(OUT_DIR, name)
+        if os.path.exists(p):
+            return p
+    return DEFAULT_MODEL
+
+
+def load_model(path: str | None = None):
+    path = path or _default_model()
     if not os.path.exists(path):
         raise SystemExit(
             f"Model not found: {path}\n"
-            "Run `python train_regression.py` (regression) or `python train.py` "
-            "(classification) first."
+            "Train one first: `python train_pls.py`, `python train_regression.py`, "
+            "or `python train.py`."
         )
     return joblib.load(path)
 
@@ -69,7 +81,7 @@ def _predict(bundle, X: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({"risk_probability": proba}, index=X.index)
 
 
-def predict_from_csv(csv_path: str, model_path: str = DEFAULT_MODEL) -> pd.DataFrame:
+def predict_from_csv(csv_path: str, model_path: str | None = None) -> pd.DataFrame:
     bundle = load_model(model_path)
     df = pd.read_csv(csv_path, index_col=0)
     return _predict(bundle, df)
@@ -79,7 +91,7 @@ def predict_from_dose(
     dose_gy: np.ndarray,
     clinical: dict | None = None,
     voxel_volume_cc: float | None = 0.002,
-    model_path: str = DEFAULT_MODEL,
+    model_path: str | None = None,
 ) -> pd.Series:
     """Score a single patient from their raw heart-dose array + clinical/baseline
     dict (e.g. baseline_gls, baseline_wss, age, anthracycline, ...)."""
@@ -94,7 +106,7 @@ def predict_from_dose(
 def main() -> None:
     ap = argparse.ArgumentParser(description="Predict cardiotoxicity markers / risk.")
     ap.add_argument("--csv", required=True, help="CSV of patients to score.")
-    ap.add_argument("--model", default=DEFAULT_MODEL)
+    ap.add_argument("--model", default=None, help="Defaults to the PLS model if present.")
     ap.add_argument("--out", default=None, help="Optional output CSV path.")
     args = ap.parse_args()
 
