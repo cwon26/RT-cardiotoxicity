@@ -45,6 +45,7 @@ the late LVEF endpoint are excluded to avoid leakage.
 | `make_dataset.py` | Synthetic cohort (N=300). Two latent injuries — myocardial (LV-dose driven) and coronary (LAD-dose driven) — feed their respective markers; late LVEF decline is downstream. |
 | `train_pls.py` | **Primary.** PLS regression: substructure dose → multi-domain markers. CV-selected components, per-target R²/MAE/RMSE, VIP scores, predicted-vs-actual plots. |
 | `train_regression.py` | Alternative. Penalized regression (Ridge/Lasso/ElasticNet/multi-task ENet/RF) on the same targets. |
+| `mediation.py` | **Mediation analysis** — formally tests that early markers carry the LV-dose → LVEF-decline effect (Baron-Kenny + bootstrap CIs, confounder-adjusted). |
 | `train.py` | Secondary. Binary classifier for the *late* CTRCD endpoint (weaker at this N, by design). |
 | `predict.py` | Score new patients (auto-detects the saved model) from a feature CSV or a raw dose dict. |
 | `requirements.txt` | Dependencies (PLS ships with scikit-learn — no extra deps). |
@@ -66,6 +67,29 @@ python train_pls.py --max-components 8
 
 PLS artifacts in `outputs/`: `model_pls.joblib`, `metrics_pls.json`,
 `pls_pred_vs_actual.png`, `vip_scores.csv`.
+
+## Mediation analysis
+
+`mediation.py` tests the core scientific claim — that the early markers lie on the
+causal path from dose to overt dysfunction:
+
+```
+LV dose ──a──> early marker ──b──> LVEF decline      (indirect = a·b)
+   └──────────────c'──────────────> LVEF decline      (direct)
+```
+
+It estimates, adjusting for chemo and clinical confounders, the total effect of LV
+dose on LVEF decline and decomposes it into a **direct** path and an **indirect**
+path through the markers, with percentile-bootstrap 95% CIs and a path diagram
+(`outputs/mediation_path.png`). On the synthetic cohort it recovers a large,
+significant mediated share (≈70%, CI excludes 0) — i.e. most of the dose effect on
+LVEF acts *through* the early markers, which is the rationale for monitoring them.
+
+```bash
+python mediation.py
+python mediation.py --exposure LV__mean_dose_gy --outcome lvef_decline \
+    --mediators gls_rel_change_pct lv_wss_change --n-boot 2000
+```
 
 ## Predictors
 
@@ -97,8 +121,9 @@ post-processing (the repo already builds the LV mesh and a Fluent valve workflow
 
 ## Roadmap
 
-Natural follow-ups discussed for this cohort design:
-- **Mediation analysis** — formally test that early markers mediate the dose→LVEF
-  effect (the next analysis after this substructure+PLS step).
+Natural follow-ups for this cohort design:
+- ✅ **Mediation analysis** — implemented in `mediation.py`.
 - **Substructure NTCP curves** — LAD/LV dose-response for clinical reporting.
 - **Functional DVH (fPCA)** — use whole DVH curves instead of fixed Vx thresholds.
+- **Causal mediation (potential-outcomes)** — natural direct/indirect effects with
+  exposure–mediator interaction, as a robustness check on the Baron-Kenny result.

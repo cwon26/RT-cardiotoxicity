@@ -1,0 +1,61 @@
+{
+  "config": {
+    "exposure": "LV__mean_dose_gy",
+    "outcome": "lvef_decline",
+    "mediators": [
+      "gls_rel_change_pct",
+      "lv_wss_change"
+    ],
+    "covariates": [
+      "anthracycline",
+      "trastuzumab",
+      "hypertension",
+      "diabetes",
+      "smoker",
+      "age",
+      "baseline_lvef"
+    ],
+    "n": 300,
+    "n_boot": 2000
+  },
+  "estimates": {
+    "a": {
+      "gls_rel_change_pct": 0.4121056559533607,
+      "lv_wss_change": -0.004483983971267978
+    },
+    "b": {
+      "gls_rel_change_pct": 0.6081975886086782,
+      "lv_wss_change": -8.628720979962173
+    },
+    "direct_effect": 0.12220920848558596,
+    "total_effect": 0.411541921255106,
+    "indirect_per_mediator": {
+      "gls_rel_change_pct": 0.25064166620283157,
+      "lv_wss_change": 0.0386910465666941
+    },
+    "total_indirect_effect": 0.28933271276952566,
+    "proportion_mediated": 0.703045541234606
+  },
+  "ci95": {
+    "total_indirect_effect": [
+      0.20399299640293364,
+      0.37923396989559505
+    ],
+    "direct_effect": [
+      0.013057927147615084,
+      0.2302632891567382
+    ],
+    "proportion_mediated": [
+      0.5181404903485625,
+      0.9598356668005934
+    ],
+    "indirect::gls_rel_change_pct": [
+      0.16895029287965904,
+      0.3337491553151398
+    ],
+    "indirect::lv_wss_change": [
+      0.01310415525033536,
+      0.07010317040919689
+    ]
+  }
+}

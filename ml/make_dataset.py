@@ -151,8 +151,18 @@ def generate_cohort(n_patients: int = 300, seed: int = 42) -> pd.DataFrame:
         followup_lad_osi = float(np.clip(baseline_lad_osi + 0.020 * cor_z + rng.normal(0, 0.010), 0.0, 0.5))
         lad_osi_change = float(followup_lad_osi - baseline_lad_osi)
 
-        # ---- Late endpoint (downstream of myocardial injury) -----------------
-        lvef_decline = float(np.clip(0.75 * myo_injury + rng.normal(0, 3.5), 0, 40))
+        # ---- Late endpoint with a genuine mediation structure ----------------
+        # The overt LVEF drop arises partly *through* the early subclinical
+        # markers (strain/CFD changes precede the EF fall) and partly via a
+        # residual direct injury path. This builds a real dose -> marker -> LVEF
+        # chain, so the mediation analysis recovers a non-trivial mediated share.
+        lvef_decline = float(np.clip(
+            0.28 * myo_injury                 # direct path (injury not via markers)
+            + 0.70 * gls_rel_change_pct       # indirect via strain
+            + 11.0 * (-lv_wss_change)         # indirect via LV CFD wall shear stress
+            + rng.normal(0, 2.6),
+            0, 40,
+        ))
         cardiotoxicity = int(lvef_decline >= 10.0)
 
         rec = {"patient_id": pid, "laterality": laterality, **feats}
